@@ -8,7 +8,7 @@ with app.app_context():
 
     admin = User.query.filter_by(student_id="ADMIN-001").first()
     if not admin:
-        admin = User(student_id="ADMIN-001", name="Dr. Morgan Lee", email="admin@gentech.edu", role="admin")
+        admin = User(student_id="ADMIN-001", name="Mohand Emad", email="admin@gentech.edu", role="admin")
         admin.set_password("Admin123!")
         db.session.add(admin)
 
