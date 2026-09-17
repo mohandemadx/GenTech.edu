@@ -6,16 +6,22 @@ from pathlib import Path
 import pandas as pd
 from flask import Flask, flash, redirect, render_template, request, session, url_for
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import UniqueConstraint
+from sqlalchemy import text, UniqueConstraint
 from werkzeug.security import check_password_hash, generate_password_hash
 
 BASE_DIR = Path(__file__).resolve().parent
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-only-change-me")
-app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get(
-    "DATABASE_URL", f"sqlite:///{BASE_DIR / 'grades.db'}"
-)
+database_url = os.environ.get("DATABASE_URL", f"sqlite:///{BASE_DIR / 'grades.db'}")
+if database_url.startswith(("postgres://", "postgresql://")):
+    database_url = database_url.replace("postgres://", "postgresql+psycopg://", 1)
+    if database_url.startswith("postgresql://"):
+        database_url = database_url.replace("postgresql://", "postgresql+psycopg://", 1)
+app.config["SQLALCHEMY_DATABASE_URI"] = database_url
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.config["SESSION_COOKIE_SECURE"] = os.environ.get("COOKIE_SECURE", "0") == "1"
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 db = SQLAlchemy(app)
 
 
@@ -176,6 +182,12 @@ def login():
 def logout():
     session.clear()
     return redirect(url_for("login"))
+
+
+@app.get("/health")
+def health():
+    db.session.execute(text("SELECT 1"))
+    return {"status": "ok"}, 200
 
 
 @app.post("/change-password")

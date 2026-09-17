@@ -7,7 +7,6 @@ GenTech.edu/
 ├── app.py                 # Flask app, SQLAlchemy models, authentication, imports, and routes
 ├── seed.py                # Creates demo users, badges, and sample grades
 ├── requirements.txt
-├── grades.db              # Generated SQLite database (do not commit)
 ├── static/
 │   └── logo-placeholder.svg # Replace this with the final GenTech logo
 └── templates/
@@ -48,3 +47,22 @@ student_id,name,email,password
 The seed script creates only the administrator and default badges. It does not create demo students or grades, so the roster import is the source of student accounts.
 
 Students can change their password from the dashboard by entering their current password and a new password of at least 8 characters. The new password must be confirmed and must differ from the current password.
+
+## Render + PostgreSQL deployment
+
+The application supports PostgreSQL through `DATABASE_URL`. In Render, configure:
+
+```text
+Build command: pip install -r requirements.txt
+Start command: gunicorn app:app --bind 0.0.0.0:$PORT
+```
+
+Set these Render environment variables:
+
+```text
+SECRET_KEY=<long-random-production-secret>
+DATABASE_URL=<PostgreSQL internal database URL>
+COOKIE_SECURE=1
+```
+
+The `/health` endpoint verifies that the application is running and can reach the configured database. Run `python seed.py` once against the production `DATABASE_URL` to create the administrator and default badges; do not commit the database or real credentials to GitHub.
