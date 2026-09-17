@@ -36,3 +36,13 @@ student_id, assessment_name, assessment_type, score, max_score
 ```
 
 `assessment_type` accepts `quiz`, `exam`, or `assignment`. Existing assessment/student grade pairs are updated, and exam scores of at least 90% or quiz scores of 100% automatically unlock their badges.
+
+To add students after the initial seed, log in as `ADMIN-001`, open the admin dashboard, and use **Import data > Student roster**. The roster file must contain:
+
+```text
+student_id,name,email,password
+```
+
+The seed script creates only the administrator and default badges. It does not create demo students or grades, so the roster import is the source of student accounts.
+
+Students can change their password from the dashboard by entering their current password and a new password of at least 8 characters. The new password must be confirmed and must differ from the current password.
