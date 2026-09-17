@@ -1,4 +1,4 @@
-# GradeAtlas
+# GenTech
 
 ## Project structure
 
@@ -8,6 +8,8 @@ GenTech.edu/
 ├── seed.py                # Creates demo users, badges, and sample grades
 ├── requirements.txt
 ├── grades.db              # Generated SQLite database (do not commit)
+├── static/
+│   └── logo-placeholder.svg # Replace this with the final GenTech logo
 └── templates/
     ├── login.html         # Shared login screen
     ├── dashboard.html     # Student gradebook and trophy case
