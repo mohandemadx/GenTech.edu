@@ -1,6 +1,6 @@
-__pycache__
+grades.db
 *.db
-*.pyc
-
-
-
+__pycache__/
+*.py[cod]
+.env
+.venv/
