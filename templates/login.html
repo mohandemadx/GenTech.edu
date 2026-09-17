@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GradeAtlas | Sign in</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { theme: { extend: { colors: { ink: '#14213d', coral: '#ef8354', mist: '#f4f7fb' } } } }</script>
+</head>
+<body class="min-h-screen bg-ink text-slate-900">
+  <main class="grid min-h-screen lg:grid-cols-2">
+    <section class="relative hidden overflow-hidden bg-[#f7c59f] p-12 lg:flex lg:flex-col lg:justify-between">
+      <div class="absolute -right-20 -top-20 h-72 w-72 rounded-full border-[32px] border-white/40"></div>
+      <div class="relative"><p class="text-sm font-bold uppercase tracking-[.25em] text-ink/60">GradeAtlas</p></div>
+      <div class="relative max-w-lg"><p class="mb-5 text-sm font-bold uppercase tracking-[.2em] text-ink/60">Your progress, in view</p><h1 class="text-6xl font-black leading-[.95] tracking-tight text-ink">Small wins.<br>Strong finish.</h1><p class="mt-7 max-w-sm text-lg leading-7 text-ink/75">A focused home for grades, milestones, and the work that gets you there.</p></div>
+      <p class="relative text-sm text-ink/60">Built for curious learners</p>
+    </section>
+    <section class="flex items-center justify-center bg-mist px-6 py-12">
+      <div class="w-full max-w-md">
+        <div class="mb-10 lg:hidden"><p class="text-sm font-bold uppercase tracking-[.25em] text-ink">GradeAtlas</p></div>
+        <p class="mb-3 text-sm font-bold uppercase tracking-[.18em] text-coral">Student portal</p>
+        <h2 class="text-4xl font-black tracking-tight text-ink">Welcome back.</h2>
+        <p class="mt-3 text-slate-500">Use the credentials provided by your instructor.</p>
+        {% with messages = get_flashed_messages(with_categories=true) %}{% for category, message in messages %}<div class="mt-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{{ message }}</div>{% endfor %}{% endwith %}
+        <form method="post" class="mt-8 space-y-5">
+          <label class="block"><span class="mb-2 block text-sm font-semibold text-ink">Student ID</span><input name="student_id" required autofocus class="w-full rounded-xl border border-slate-200 bg-white px-4 py-3.5 outline-none ring-coral transition focus:border-coral focus:ring-2" placeholder="STU-1001"></label>
+          <label class="block"><span class="mb-2 block text-sm font-semibold text-ink">Password</span><input name="password" type="password" required class="w-full rounded-xl border border-slate-200 bg-white px-4 py-3.5 outline-none ring-coral transition focus:border-coral focus:ring-2" placeholder="Your password"></label>
+          <button class="w-full rounded-xl bg-ink px-5 py-3.5 font-bold text-white transition hover:bg-slate-700">Enter GradeAtlas</button>
+        </form>
+        <p class="mt-8 text-center text-xs text-slate-400">No public registration. Ask your instructor for access.</p>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
