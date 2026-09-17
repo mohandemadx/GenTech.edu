@@ -178,6 +178,29 @@ def logout():
     return redirect(url_for("login"))
 
 
+@app.post("/change-password")
+@login_required
+def change_password():
+    user = current_user()
+    current_password = request.form.get("current_password", "")
+    new_password = request.form.get("new_password", "")
+    confirm_password = request.form.get("confirm_password", "")
+
+    if not user.check_password(current_password):
+        flash("Your current password is incorrect.", "error")
+    elif len(new_password) < 8:
+        flash("Your new password must be at least 8 characters long.", "error")
+    elif new_password != confirm_password:
+        flash("The new passwords do not match.", "error")
+    elif user.check_password(new_password):
+        flash("Your new password must be different from your current password.", "error")
+    else:
+        user.set_password(new_password)
+        db.session.commit()
+        flash("Your password was changed successfully.", "success")
+    return redirect(url_for("dashboard"))
+
+
 @app.get("/dashboard")
 @login_required
 def dashboard():
@@ -218,6 +241,41 @@ def admin():
                     imported += 1
                 db.session.commit()
                 flash(f"Imported {imported} grade record(s).", "success")
+            elif action == "students":
+                upload = request.files.get("student_file")
+                if not upload or not upload.filename:
+                    raise ValueError("Choose a student CSV or Excel file first.")
+                suffix = Path(upload.filename).suffix.lower()
+                if suffix not in {".csv", ".xlsx"}:
+                    raise ValueError("Only .csv and .xlsx files are supported.")
+                frame = pd.read_csv(upload) if suffix == ".csv" else pd.read_excel(upload)
+                required = {"student_id", "name", "email", "password"}
+                missing = required - set(frame.columns)
+                if missing:
+                    raise ValueError(f"Missing columns: {', '.join(sorted(missing))}")
+                imported = 0
+                for row_number, row in enumerate(frame.to_dict("records"), start=2):
+                    student_id = str(row["student_id"]).strip()
+                    name = str(row["name"]).strip()
+                    email = str(row["email"]).strip()
+                    password = str(row["password"]).strip()
+                    if not student_id or not name or not email or not password:
+                        raise ValueError(f"Row {row_number}: student_id, name, email, and password are required.")
+                    user = User.query.filter_by(student_id=student_id).first()
+                    if user and user.role != "student":
+                        raise ValueError(f"Row {row_number}: {student_id} belongs to an administrator.")
+                    email_owner = User.query.filter(User.email == email, User.student_id != student_id).first()
+                    if email_owner:
+                        raise ValueError(f"Row {row_number}: email is already used by another account.")
+                    if not user:
+                        user = User(student_id=student_id, role="student")
+                        db.session.add(user)
+                    user.name = name
+                    user.email = email
+                    user.set_password(password)
+                    imported += 1
+                db.session.commit()
+                flash(f"Imported {imported} student account(s).", "success")
             elif action == "grade":
                 student = db.session.get(User, int(request.form["student_id"]))
                 upsert_grade(student, request.form["assessment_name"], request.form["assessment_type"], request.form["score"], request.form["max_score"])
