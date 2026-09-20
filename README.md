@@ -56,9 +56,9 @@ Use this checklist when planning future updates to the live GenTech Portal. Comp
 
 ### Phase 1: Protect the live system
 
-- [ ] Create automated daily SQLite backups.
-- [ ] Create a backup before every grade or student import.
-- [ ] Keep multiple dated backup copies outside GitHub.
+- [x] Create automated daily SQLite backups.
+- [x] Create a backup before every grade or student import.
+- [x] Keep multiple dated backup copies outside GitHub.
 - [ ] Test restoring a backup.
 - [ ] Replace all default admin passwords with strong private passwords.
 - [ ] Add CSRF protection to all state-changing forms.
@@ -144,9 +144,29 @@ Follow this process for every future production update:
 
 The current `seed.py` script is destructive. It drops all existing tables and data before recreating the database. Never run it against production after real student data has been imported unless a full reset is explicitly intended and a verified backup exists.
 
+### Backup commands
+
+Create a timestamped backup manually from the project directory:
+
+```bash
+python backup_db.py
+```
+
+The script stores up to 14 backups in `backups/`, and removes older copies automatically. The `backups/` directory is excluded from GitHub by `.gitignore`.
+
+The application also creates a backup before student imports, grade imports, manual grade changes, badge awards, and password changes. If a backup cannot be created, the requested change is not saved.
+
+For PythonAnywhere, create a scheduled task that runs once per day:
+
+```bash
+cd /home/YOUR_USERNAME/YOUR_REPOSITORY && /home/YOUR_USERNAME/YOUR_REPOSITORY/.venv/bin/python backup_db.py
+```
+
+Download copies periodically from the PythonAnywhere Files tab or copy them to storage outside the application account. A local backup folder alone does not protect against account or disk loss.
+
 ## Recommended implementation order
 
-1. Automated backups
+1. ~~Automated backups~~ (implemented)
 2. CSRF protection
 3. First-login password changes
 4. Admin password reset

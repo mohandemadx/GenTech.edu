@@ -4,6 +4,7 @@ from functools import wraps
 from pathlib import Path
 
 import pandas as pd
+from backup_db import BackupError, create_backup
 from flask import Flask, flash, redirect, render_template, request, session, url_for
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import text, UniqueConstraint
@@ -231,9 +232,14 @@ def change_password():
     elif user.check_password(new_password):
         flash("Your new password must be different from your current password.", "error")
     else:
-        user.set_password(new_password)
-        db.session.commit()
-        flash("Your password was changed successfully.", "success")
+        try:
+            create_backup()
+            user.set_password(new_password)
+            db.session.commit()
+            flash("Your password was changed successfully.", "success")
+        except BackupError as error:
+            db.session.rollback()
+            flash(f"Password change was not saved: {error}", "error")
     return redirect(url_for("dashboard"))
 
 
@@ -256,6 +262,8 @@ def admin():
     if request.method == "POST":
         action = request.form.get("action")
         try:
+            if action in {"upload", "students", "grade", "badge"}:
+                create_backup()
             if action == "upload":
                 upload = request.files.get("file")
                 if not upload or not upload.filename:
@@ -323,6 +331,9 @@ def admin():
                 award_badge(student, badge.name if badge else None)
                 db.session.commit()
                 flash("Badge awarded.", "success")
+        except BackupError as error:
+            db.session.rollback()
+            flash(f"Change was not saved because a backup could not be created: {error}", "error")
         except (ValueError, TypeError, KeyError) as error:
             db.session.rollback()
             flash(str(error), "error")
