@@ -1,4 +1,4 @@
-# GenTech
+# GenTech Portal
 
 ## Project structure
 
