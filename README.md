@@ -23,12 +23,14 @@ python seed.py
 python app.py
 ```
 
-Open `http://127.0.0.1:5000`. The seed script is idempotent and prints the demo credentials:
+Open `http://127.0.0.1:5000`. The reset seed script recreates the database and prints the administrator credentials:
 
-- Admin: `ADMIN-001` / `Admin123!`
-- Students: `STU-1001`, `STU-1002`, or `STU-1003` / `Welcome123!`
+- Admin 1: `ADMIN-001` / `Admin123!`
+- Admin 2: `ADMIN-002` / `Instructor123!`
 
 Set a strong `SECRET_KEY` and replace the demo passwords before deploying. You can also set `DATABASE_URL` to point to another SQLite database.
+
+For local PostgreSQL development, set the variables in your shell using the values in `.env.example`. Never commit `.env` or paste a real database URL into source files. For Render, add `SECRET_KEY`, `DATABASE_URL`, and `COOKIE_SECURE=1` in the service's Environment settings.
 
 Bulk files must contain these columns:
 
@@ -44,7 +46,7 @@ To add students after the initial seed, log in as `ADMIN-001`, open the admin da
 student_id,name,email,password
 ```
 
-The seed script creates only the administrator and default badges. It does not create demo students or grades, so the roster import is the source of student accounts.
+The seed script **deletes all existing tables and data** before recreating the administrator accounts and 20 badges. It does not create students or grades, so the roster import is the source of student accounts. Back up `grades.db` before running it.
 
 Students can change their password from the dashboard by entering their current password and a new password of at least 8 characters. The new password must be confirmed and must differ from the current password.
 

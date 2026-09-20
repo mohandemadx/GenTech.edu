@@ -83,7 +83,24 @@ class StudentBadge(db.Model):
 DEFAULT_BADGES = [
     {"name": "Top Scorer", "description": "Scored 90% or higher on an exam.", "icon_name": "star", "criteria_type": "exam_90"},
     {"name": "Perfect Quiz", "description": "Scored 100% on a quiz.", "icon_name": "sparkles", "criteria_type": "quiz_100"},
-    {"name": "Class Champion", "description": "A badge awarded personally by your instructor.", "icon_name": "trophy", "criteria_type": "manual"},
+    {"name": "Exam Excellence", "description": "Scored 100% on an exam.", "icon_name": "trophy", "criteria_type": "exam_100"},
+    {"name": "Quiz Ace", "description": "Scored at least 90% on a quiz.", "icon_name": "target", "criteria_type": "quiz_90"},
+    {"name": "Assignment Pro", "description": "Scored at least 90% on an assignment.", "icon_name": "book", "criteria_type": "assignment_90"},
+    {"name": "Class Champion", "description": "A badge awarded personally by your instructor.", "icon_name": "crown", "criteria_type": "manual"},
+    {"name": "Outstanding Effort", "description": "A badge awarded personally by your instructor.", "icon_name": "medal", "criteria_type": "manual"},
+    {"name": "Creative Thinker", "description": "A badge awarded personally by your instructor.", "icon_name": "lightbulb", "criteria_type": "manual"},
+    {"name": "Helpful Classmate", "description": "A badge awarded personally by your instructor.", "icon_name": "hand", "criteria_type": "manual"},
+    {"name": "Curious Learner", "description": "A badge awarded personally by your instructor.", "icon_name": "search", "criteria_type": "manual"},
+    {"name": "Leadership Badge", "description": "A badge awarded personally by your instructor.", "icon_name": "flag", "criteria_type": "manual"},
+    {"name": "Persistence Award", "description": "A badge awarded personally by your instructor.", "icon_name": "mountain", "criteria_type": "manual"},
+    {"name": "Growth Mindset", "description": "A badge awarded personally by your instructor.", "icon_name": "seedling", "criteria_type": "manual"},
+    {"name": "Team Builder", "description": "A badge awarded personally by your instructor.", "icon_name": "users", "criteria_type": "manual"},
+    {"name": "Discussion Leader", "description": "A badge awarded personally by your instructor.", "icon_name": "chat", "criteria_type": "manual"},
+    {"name": "Research Star", "description": "A badge awarded personally by your instructor.", "icon_name": "microscope", "criteria_type": "manual"},
+    {"name": "Reliable Contributor", "description": "A badge awarded personally by your instructor.", "icon_name": "check", "criteria_type": "manual"},
+    {"name": "Kindness Counts", "description": "A badge awarded personally by your instructor.", "icon_name": "heart", "criteria_type": "manual"},
+    {"name": "Problem Solver", "description": "A badge awarded personally by your instructor.", "icon_name": "puzzle", "criteria_type": "manual"},
+    {"name": "Course Finisher", "description": "A badge awarded personally by your instructor.", "icon_name": "flag-checkered", "criteria_type": "manual"},
 ]
 
 
@@ -136,8 +153,14 @@ def evaluate_badges(user, assessment):
     percentage = latest_grade.score / assessment.max_score * 100
     if assessment.type == "exam" and percentage >= 90:
         award_badge(user, "Top Scorer")
+    if assessment.type == "exam" and percentage >= 100:
+        award_badge(user, "Exam Excellence")
     if assessment.type == "quiz" and percentage >= 100:
         award_badge(user, "Perfect Quiz")
+    if assessment.type == "quiz" and percentage >= 90:
+        award_badge(user, "Quiz Ace")
+    if assessment.type == "assignment" and percentage >= 90:
+        award_badge(user, "Assignment Pro")
 
 
 def upsert_grade(student, title, assessment_type, score, max_score):
@@ -161,6 +184,7 @@ def upsert_grade(student, title, assessment_type, score, max_score):
     else:
         grade = Grade(student=student, assessment=assessment, score=score)
         db.session.add(grade)
+    db.session.flush()
     evaluate_badges(student, assessment)
 
 
