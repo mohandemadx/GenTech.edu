@@ -50,6 +50,113 @@ The seed script **deletes all existing tables and data** before recreating the a
 
 Students can change their password from the dashboard by entering their current password and a new password of at least 8 characters. The new password must be confirmed and must differ from the current password.
 
+## Live project improvement roadmap
+
+Use this checklist when planning future updates to the live GenTech Portal. Complete backups before making production changes, and test changes with a separate development database first.
+
+### Phase 1: Protect the live system
+
+- [ ] Create automated daily SQLite backups.
+- [ ] Create a backup before every grade or student import.
+- [ ] Keep multiple dated backup copies outside GitHub.
+- [ ] Test restoring a backup.
+- [ ] Replace all default admin passwords with strong private passwords.
+- [ ] Add CSRF protection to all state-changing forms.
+- [ ] Enforce secure, HTTP-only, SameSite session cookies.
+- [ ] Add session expiration and logout-from-all-devices support.
+- [ ] Add login rate limiting and temporary account lockout.
+- [ ] Require students to change temporary passwords on first login.
+- [ ] Add an admin password-reset workflow for students.
+
+### Phase 2: Improve administration
+
+- [ ] Add student search and filtering.
+- [ ] Allow admins to edit student names and email addresses.
+- [ ] Add account disable/deactivate support.
+- [ ] Add student password reset support.
+- [ ] Add safe student-list export.
+- [ ] Add grade filtering by student, assessment type, and date.
+- [ ] Allow admins to edit and delete incorrect grades.
+- [ ] Record who changed a grade and when.
+- [ ] Add CSV/Excel preview before committing an import.
+- [ ] Show row-level import validation errors.
+- [ ] Create an automatic backup before each import.
+- [ ] Add admin badge creation and editing.
+- [ ] Add configurable automatic badge thresholds.
+- [ ] Add badge-award history.
+
+### Phase 3: Improve the student experience
+
+- [ ] Add grade filters by assessment category.
+- [ ] Show averages for quizzes, exams, and assignments separately.
+- [ ] Add grade trends over time.
+- [ ] Show points needed for the next badge or milestone.
+- [ ] Add recent activity.
+- [ ] Add a student profile page.
+- [ ] Add instructor comments per assessment.
+- [ ] Add private teacher-student questions or messages.
+- [ ] Improve keyboard navigation and screen-reader labels.
+- [ ] Verify color contrast and mobile layouts.
+
+### Phase 4: Improve privacy
+
+- [ ] Store only data required for the educational purpose.
+- [ ] Ensure students can access only their own grades and badges.
+- [ ] Ensure student data never appears in public URLs or unauthenticated pages.
+- [ ] Add an audit log for logins, imports, grade changes, badge awards, and password actions.
+- [ ] Define retention periods for inactive accounts, grades, audit logs, and backups.
+- [ ] Add a privacy notice explaining collection, access, use, and retention.
+- [ ] Keep all secrets in PythonAnywhere environment variables.
+- [ ] Never commit `.env`, databases, backups, or real student CSV files.
+- [ ] Rotate credentials if they are ever shared or exposed.
+
+### Phase 5: Technical maintenance
+
+- [ ] Add Flask-Migrate/Alembic database migrations.
+- [ ] Keep development and production databases separate.
+- [ ] Add automated tests for authentication and authorization.
+- [ ] Add tests for CSV validation and imports.
+- [ ] Add tests for password changes and badge rules.
+- [ ] Add tests confirming students cannot access admin data.
+- [ ] Monitor the `/health` endpoint.
+- [ ] Update dependencies regularly and test updates locally.
+- [ ] Review PythonAnywhere logs after every deployment.
+
+## Safe update workflow
+
+Follow this process for every future production update:
+
+```text
+1. Back up the production database.
+2. Make the change locally.
+3. Test using a separate development database.
+4. Review the code and affected screens.
+5. Commit and push the change to GitHub.
+6. Pull the update on PythonAnywhere.
+7. Install any dependency changes.
+8. Run migrations, if applicable.
+9. Reload the PythonAnywhere web application.
+10. Test login, student access, admin access, and /health.
+11. Confirm the live application is working.
+```
+
+### Critical warning
+
+The current `seed.py` script is destructive. It drops all existing tables and data before recreating the database. Never run it against production after real student data has been imported unless a full reset is explicitly intended and a verified backup exists.
+
+## Recommended implementation order
+
+1. Automated backups
+2. CSRF protection
+3. First-login password changes
+4. Admin password reset
+5. Import preview and validation
+6. Audit logging
+7. Improved grade editing
+8. Badge management UI
+9. Student feedback and comments
+10. Database migrations
+
 ## Render + PostgreSQL deployment
 
 The application supports PostgreSQL through `DATABASE_URL`. In Render, configure:
