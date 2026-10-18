@@ -215,6 +215,37 @@ def health():
     return {"status": "ok"}, 200
 
 
+@app.route("/admin/student-password", methods=["GET", "POST"])
+@admin_required
+def admin_student_password():
+    if request.method == "POST":
+        try:
+            student = db.session.get(User, int(request.form.get("student_id", "")))
+            new_password = request.form.get("new_password", "")
+            confirm_password = request.form.get("confirm_password", "")
+            if not student or student.role != "student":
+                raise ValueError("Select a valid student account.")
+            if len(new_password) < 8:
+                raise ValueError("The new password must be at least 8 characters long.")
+            if new_password != confirm_password:
+                raise ValueError("The new passwords do not match.")
+
+            create_backup()
+            student.set_password(new_password)
+            db.session.commit()
+            flash(f"Password reset for {student.name} ({student.student_id}).", "success")
+            return redirect(url_for("admin"))
+        except BackupError as error:
+            db.session.rollback()
+            flash(f"Password was not changed because a backup could not be created: {error}", "error")
+        except (TypeError, ValueError) as error:
+            db.session.rollback()
+            flash(str(error), "error")
+
+    students = User.query.filter_by(role="student").order_by(User.name).all()
+    return render_template("admin_password.html", students=students)
+
+
 @app.post("/change-password")
 @login_required
 def change_password():

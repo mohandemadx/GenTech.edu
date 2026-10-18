@@ -50,6 +50,8 @@ The seed script **deletes all existing tables and data** before recreating the a
 
 Students can change their password from the dashboard by entering their current password and a new password of at least 8 characters. The new password must be confirmed and must differ from the current password.
 
+Admins can reset a student's password from **Reset student password** in the admin header. Passwords are stored as one-way hashes, so admins cannot view existing passwords. Resets require a new password of at least 8 characters and create a database backup before saving; communicate the new password privately and encourage the student to change it after signing in.
+
 ## Live project improvement roadmap
 
 Use this checklist when planning future updates to the live GenTech Portal. Complete backups before making production changes, and test changes with a separate development database first.
