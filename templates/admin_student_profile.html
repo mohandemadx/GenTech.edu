@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ student.name }} | GenTech Portal Admin</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-blue-50 text-[#0f2f68]">
+  <header class="border-b border-blue-100 bg-white">
+    <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
+      <a href="{{ url_for('admin') }}"><img src="{{ url_for('static', filename='logo-placeholder.svg') }}" alt="GenTech Portal" class="h-10 w-auto"></a>
+      <nav class="flex items-center gap-4 text-sm font-semibold">
+        <a href="{{ url_for('admin_student_password') }}" class="text-blue-700 hover:text-blue-900">Reset password</a>
+        <a href="{{ url_for('admin') }}" class="text-slate-500 hover:text-blue-800">Admin dashboard</a>
+      </nav>
+    </div>
+  </header>
+  <main class="mx-auto max-w-6xl space-y-8 px-6 py-10">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, message in messages %}
+        <div class="rounded-xl border px-4 py-3 text-sm {% if category == 'error' %}border-red-200 bg-red-50 text-red-700{% else %}border-emerald-200 bg-emerald-50 text-emerald-700{% endif %}">{{ message }}</div>
+      {% endfor %}
+    {% endwith %}
+    <header>
+      <p class="text-sm font-bold uppercase tracking-[.18em] text-blue-600">Student profile</p>
+      <h1 class="mt-2 text-3xl font-black">{{ student.name }}</h1>
+      <p class="mt-1 text-slate-500">{{ student.student_id }} · {{ student.email }}</p>
+    </header>
+
+    <section class="grid gap-4 sm:grid-cols-3">
+      <article class="rounded-2xl bg-[#0f2f68] p-6 text-white"><p class="text-sm text-white/65">Overall average</p><p class="mt-2 text-3xl font-black">{{ '%.1f'|format(average) }}%</p></article>
+      <article class="rounded-2xl border border-blue-100 bg-white p-6"><p class="text-sm text-slate-500">Total points</p><p class="mt-2 text-3xl font-black">{{ '%.1f'|format(total_points) }}</p></article>
+      <article class="rounded-2xl border border-blue-100 bg-white p-6"><p class="text-sm text-slate-500">Grades / badges</p><p class="mt-2 text-3xl font-black">{{ grades|length }} / {{ awards|length }}</p></article>
+    </section>
+
+    <section class="rounded-2xl border border-blue-100 bg-white p-6 shadow-sm">
+      <h2 class="text-xl font-black">Account details</h2>
+      <form method="post" class="mt-5 grid gap-4 sm:grid-cols-2">
+        <input type="hidden" name="action" value="profile">
+        <label class="text-sm font-semibold">Name<input name="name" value="{{ student.name }}" required class="mt-2 w-full rounded-lg border border-slate-200 p-3"></label>
+        <label class="text-sm font-semibold">Email<input name="email" type="email" value="{{ student.email }}" required class="mt-2 w-full rounded-lg border border-slate-200 p-3"></label>
+        <button class="rounded-lg bg-blue-700 px-5 py-3 font-bold text-white hover:bg-blue-800 sm:col-span-2 sm:justify-self-end">Save account details</button>
+      </form>
+    </section>
+
+    <section class="overflow-hidden rounded-2xl border border-blue-100 bg-white shadow-sm">
+      <div class="border-b border-slate-100 px-6 py-5"><h2 class="text-xl font-black">Grades</h2><p class="mt-1 text-sm text-slate-500">Correct a score or remove a grade. Automatic badges are recalculated after changes.</p></div>
+      <div class="divide-y divide-slate-100">
+        {% for grade in grades %}
+          <div class="grid gap-4 px-6 py-5 lg:grid-cols-[1.2fr_.8fr_.6fr] lg:items-center">
+            <div>
+              <h3 class="font-bold">{{ grade.assessment.title }}</h3>
+              <p class="mt-1 text-sm capitalize text-slate-500">{{ grade.assessment.type }} · {{ grade.assessment.session_date.strftime('%b %d, %Y') if grade.assessment.session_date else 'Undated session' }} · max {{ '%.2f'|format(grade.assessment.max_score) }}</p>
+            </div>
+            <form method="post" class="flex items-end gap-2">
+              <input type="hidden" name="action" value="grade">
+              <input type="hidden" name="grade_id" value="{{ grade.id }}">
+              <label class="text-xs font-semibold text-slate-500">Score<input name="score" type="number" min="0" max="{{ grade.assessment.max_score }}" step="0.01" value="{{ grade.score }}" required class="mt-1 block w-28 rounded-lg border border-slate-200 p-2 text-sm text-[#0f2f68]"></label>
+              <button class="rounded-lg bg-blue-700 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-800">Save</button>
+            </form>
+            <form method="post" onsubmit="return confirm('Delete this grade? Related automatic badges will be recalculated.');" class="lg:justify-self-end">
+              <input type="hidden" name="action" value="delete_grade">
+              <input type="hidden" name="grade_id" value="{{ grade.id }}">
+              <button class="rounded-lg border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50">Delete grade</button>
+            </form>
+          </div>
+        {% else %}
+          <p class="px-6 py-8 text-center text-slate-500">No grades recorded for this student.</p>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="rounded-2xl border border-blue-100 bg-white p-6 shadow-sm">
+      <h2 class="text-xl font-black">Badges</h2>
+      <p class="mt-1 text-sm text-slate-500">Automatic badges recalculate from grades. Admins may award or remove manual badges.</p>
+      <form method="post" class="mt-5 flex flex-col gap-3 sm:flex-row">
+        <input type="hidden" name="action" value="award_badge">
+        <select name="badge_id" required class="flex-1 rounded-lg border border-slate-200 bg-white p-3">
+          <option value="">Select an admin-awarded badge</option>
+          {% for badge in badges if badge.criteria_type == 'manual' and badge.id not in awards %}
+            <option value="{{ badge.id }}">{{ badge.name }}</option>
+          {% endfor %}
+        </select>
+        <button class="rounded-lg bg-blue-700 px-5 py-3 font-bold text-white hover:bg-blue-800">Award badge</button>
+      </form>
+      <div class="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {% for badge in badges %}
+          {% set award = awards.get(badge.id) %}
+          <article class="rounded-xl border border-slate-200 p-4">
+            <div class="flex items-start justify-between gap-3">
+              <div><h3 class="font-bold">{{ badge.name }}</h3><p class="mt-1 text-sm text-slate-500">{{ badge.description }}</p></div>
+              {% if award %}
+                <span class="whitespace-nowrap rounded-full bg-blue-100 px-2 py-1 text-xs font-bold text-blue-800">Earned</span>
+              {% else %}
+                <span class="whitespace-nowrap rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-500">Locked</span>
+              {% endif %}
+            </div>
+            {% if award %}
+              <p class="mt-3 text-xs text-slate-500">Awarded {{ award.unlocked_at.strftime('%b %d, %Y') }}</p>
+              {% if badge.criteria_type == 'manual' %}
+                <form method="post" onsubmit="return confirm('Remove this manual badge?');" class="mt-3">
+                  <input type="hidden" name="action" value="remove_badge">
+                  <input type="hidden" name="student_badge_id" value="{{ award.id }}">
+                  <button class="text-sm font-semibold text-red-700 hover:text-red-900">Remove badge</button>
+                </form>
+              {% endif %}
+            {% endif %}
+          </article>
+        {% endfor %}
+      </div>
+    </section>
+  </main>
+</body>
+</html>

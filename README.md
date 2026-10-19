@@ -35,10 +35,23 @@ For local PostgreSQL development, set the variables in your shell using the valu
 Bulk files must contain these columns:
 
 ```text
-student_id, assessment_name, assessment_type, score, max_score
+student_id, assessment_name, assessment_type, score, max_score, session_date
 ```
 
-`assessment_type` accepts `quiz`, `exam`, or `assignment`. Existing assessment/student grade pairs are updated, and exam scores of at least 90% or quiz scores of 100% automatically unlock their badges.
+`assessment_type` accepts `quiz`, `exam`, or `assignment`. `session_date` must be the Monday session date in `YYYY-MM-DD` format. Each assessment title should be unique across the course (for example, `Week 1 Quiz`, `Week 2 Quiz`). Existing assessment/student grade pairs are updated, and exam scores of at least 90% or quiz scores of 100% automatically unlock their badges.
+
+### Monday session-date migration
+
+Student-of-the-Week/Month rankings use an assessment's session date. Before reloading the updated application against an existing SQLite database:
+
+```bash
+python backup_db.py
+python migrate_session_dates.py
+```
+
+The migration safely adds a nullable `session_date` column to the existing `assessment` table and can be run more than once. Existing assessments remain undated and are preserved; new grade records require a Monday date. Old records can be given dates by editing/re-importing their grades.
+
+The student dashboard displays the highest average percentage for the current Monday-to-Sunday week and current calendar month. Students need at least one dated grade in that period. If the top average is tied, an administrator selects one of the tied students in **Admin dashboard > Recognition**. The selection is stored by period, and the app creates the required table automatically when it starts.
 
 To add students after the initial seed, log in as `ADMIN-001`, open the admin dashboard, and use **Import data > Student roster**. The roster file must contain:
 
@@ -51,6 +64,8 @@ The seed script **deletes all existing tables and data** before recreating the a
 Students can change their password from the dashboard by entering their current password and a new password of at least 8 characters. The new password must be confirmed and must differ from the current password.
 
 Admins can reset a student's password from **Reset student password** in the admin header. Passwords are stored as one-way hashes, so admins cannot view existing passwords. Resets require a new password of at least 8 characters and create a database backup before saving; communicate the new password privately and encourage the student to change it after signing in.
+
+Admins can open a student profile from the **Student profiles** list. The profile shows account details, grade and badge summaries, dated assessments, and badge award dates. Admins can update a student's name/email, correct or delete that student's grades, and award/remove manually granted badges. Each edit creates a backup first. Automatic badges are recalculated after grade corrections and are removed only when the student no longer qualifies through any grade; manual badges are unchanged.
 
 ## Live project improvement roadmap
 
@@ -72,7 +87,8 @@ Use this checklist when planning future updates to the live GenTech Portal. Comp
 
 ### Phase 2: Improve administration
 
-- [ ] Add student search and filtering.
+- [x] Add student profiles with grades, badges, account summaries, and scoped editing.
+- [x] Add student search and filtering in the admin **Students** tab.
 - [ ] Allow admins to edit student names and email addresses.
 - [ ] Add account disable/deactivate support.
 - [ ] Add student password reset support.
@@ -89,12 +105,13 @@ Use this checklist when planning future updates to the live GenTech Portal. Comp
 
 ### Phase 3: Improve the student experience
 
+- [x] Show Student of the Week and Student of the Month using Monday session dates, with admin tie resolution.
 - [ ] Add grade filters by assessment category.
 - [ ] Show averages for quizzes, exams, and assignments separately.
 - [ ] Add grade trends over time.
 - [ ] Show points needed for the next badge or milestone.
 - [ ] Add recent activity.
-- [ ] Add a student profile page.
+- [x] Add an admin student profile page.
 - [ ] Add instructor comments per assessment.
 - [ ] Add private teacher-student questions or messages.
 - [ ] Improve keyboard navigation and screen-reader labels.

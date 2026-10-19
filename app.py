@@ -1,5 +1,7 @@
 import os
-from datetime import datetime
+import math
+import calendar
+from datetime import date, datetime, timedelta
 from functools import wraps
 from pathlib import Path
 
@@ -48,6 +50,7 @@ class Assessment(db.Model):
     title = db.Column(db.String(160), nullable=False)
     type = db.Column(db.String(20), nullable=False)
     max_score = db.Column(db.Float, nullable=False)
+    session_date = db.Column(db.Date, nullable=True)
     grades = db.relationship("Grade", back_populates="assessment", cascade="all, delete-orphan")
     __table_args__ = (UniqueConstraint("title", "type", name="uq_assessment_title_type"),)
 
@@ -60,6 +63,10 @@ class Grade(db.Model):
     student = db.relationship("User", back_populates="grades")
     assessment = db.relationship("Assessment", back_populates="grades")
     __table_args__ = (UniqueConstraint("student_id", "assessment_id", name="uq_student_assessment"),)
+
+    @property
+    def percentage(self):
+        return self.score / self.assessment.max_score * 100 if self.assessment.max_score else 0
 
 
 class Badge(db.Model):
@@ -79,6 +86,20 @@ class StudentBadge(db.Model):
     student = db.relationship("User", back_populates="badges")
     badge = db.relationship("Badge", back_populates="awards")
     __table_args__ = (UniqueConstraint("student_id", "badge_id", name="uq_student_badge"),)
+
+
+class RecognitionSelection(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    period_type = db.Column(db.String(10), nullable=False)
+    period_start = db.Column(db.Date, nullable=False)
+    student_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    selected_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    selected_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    student = db.relationship("User", foreign_keys=[student_id])
+    selected_by = db.relationship("User", foreign_keys=[selected_by_id])
+    __table_args__ = (
+        UniqueConstraint("period_type", "period_start", name="uq_recognition_period"),
+    )
 
 
 DEFAULT_BADGES = [
@@ -103,6 +124,83 @@ DEFAULT_BADGES = [
     {"name": "Problem Solver", "description": "A badge awarded personally by your instructor.", "icon_name": "puzzle", "criteria_type": "manual"},
     {"name": "Course Finisher", "description": "A badge awarded personally by your instructor.", "icon_name": "flag-checkered", "criteria_type": "manual"},
 ]
+
+
+def period_bounds(period_type, reference_date=None):
+    reference_date = reference_date or date.today()
+    if period_type == "weekly":
+        start = reference_date - timedelta(days=reference_date.weekday())
+        return start, start + timedelta(days=6)
+    if period_type == "monthly":
+        start = reference_date.replace(day=1)
+        last_day = calendar.monthrange(start.year, start.month)[1]
+        return start, start.replace(day=last_day)
+    raise ValueError("Period type must be weekly or monthly.")
+
+
+def get_period_recognition(period_type, start_date, end_date):
+    grades = (
+        Grade.query.join(Assessment)
+        .join(User, Grade.student_id == User.id)
+        .filter(
+            User.role == "student",
+            Assessment.session_date >= start_date,
+            Assessment.session_date <= end_date,
+            Assessment.session_date.isnot(None),
+        )
+        .all()
+    )
+    per_student = {}
+    for grade in grades:
+        if grade.assessment.max_score <= 0:
+            continue
+        entry = per_student.setdefault(
+            grade.student_id,
+            {"student": grade.student, "percentages": []},
+        )
+        entry["percentages"].append(grade.percentage)
+
+    rankings = [
+        {
+            "student": entry["student"],
+            "average": sum(entry["percentages"]) / len(entry["percentages"]),
+            "grade_count": len(entry["percentages"]),
+        }
+        for entry in per_student.values()
+    ]
+    rankings.sort(key=lambda row: (-row["average"], row["student"].name.casefold()))
+
+    leaders = []
+    selection = None
+    winner = None
+    if rankings:
+        highest_average = rankings[0]["average"]
+        leaders = [
+            row for row in rankings
+            if math.isclose(row["average"], highest_average, rel_tol=1e-9, abs_tol=1e-9)
+        ]
+        selection = RecognitionSelection.query.filter_by(
+            period_type=period_type,
+            period_start=start_date,
+        ).first()
+        if len(leaders) == 1:
+            winner = leaders[0]
+        elif selection:
+            winner = next(
+                (row for row in leaders if row["student"].id == selection.student_id),
+                None,
+            )
+
+    return {
+        "period_type": period_type,
+        "start": start_date,
+        "end": end_date,
+        "rankings": rankings,
+        "leaders": leaders,
+        "winner": winner,
+        "selection": selection,
+        "needs_admin_choice": len(leaders) > 1 and winner is None,
+    }
 
 
 def current_user():
@@ -147,38 +245,56 @@ def award_badge(user, badge_name):
         db.session.add(StudentBadge(student=user, badge=badge))
 
 
-def evaluate_badges(user, assessment):
-    latest_grade = Grade.query.filter_by(student_id=user.id, assessment_id=assessment.id).first()
-    if not latest_grade or not assessment.max_score:
-        return
-    percentage = latest_grade.score / assessment.max_score * 100
-    if assessment.type == "exam" and percentage >= 90:
-        award_badge(user, "Top Scorer")
-    if assessment.type == "exam" and percentage >= 100:
-        award_badge(user, "Exam Excellence")
-    if assessment.type == "quiz" and percentage >= 100:
-        award_badge(user, "Perfect Quiz")
-    if assessment.type == "quiz" and percentage >= 90:
-        award_badge(user, "Quiz Ace")
-    if assessment.type == "assignment" and percentage >= 90:
-        award_badge(user, "Assignment Pro")
+def evaluate_badges(user, assessment=None):
+    rules = {
+        "exam_90": lambda grade: grade.assessment.type == "exam" and grade.percentage >= 90,
+        "exam_100": lambda grade: grade.assessment.type == "exam" and grade.percentage >= 100,
+        "quiz_100": lambda grade: grade.assessment.type == "quiz" and grade.percentage >= 100,
+        "quiz_90": lambda grade: grade.assessment.type == "quiz" and grade.percentage >= 90,
+        "assignment_90": lambda grade: grade.assessment.type == "assignment" and grade.percentage >= 90,
+    }
+    grades = Grade.query.filter_by(student_id=user.id).all()
+    for badge in Badge.query.filter(Badge.criteria_type.in_(rules)).all():
+        awarded = StudentBadge.query.filter_by(student_id=user.id, badge_id=badge.id).first()
+        qualifies = any(rules[badge.criteria_type](grade) for grade in grades)
+        if qualifies and not awarded:
+            db.session.add(StudentBadge(student=user, badge=badge))
+        elif not qualifies and awarded:
+            db.session.delete(awarded)
 
 
-def upsert_grade(student, title, assessment_type, score, max_score):
+def parse_session_date(value):
+    if isinstance(value, datetime):
+        session_date = value.date()
+    elif isinstance(value, date):
+        session_date = value
+    else:
+        try:
+            session_date = date.fromisoformat(str(value).strip())
+        except (TypeError, ValueError) as error:
+            raise ValueError("session_date must use YYYY-MM-DD format.") from error
+    if session_date.weekday() != 0:
+        raise ValueError("Session date must be a Monday.")
+    return session_date
+
+
+def upsert_grade(student, title, assessment_type, score, max_score, session_date):
     assessment_type = assessment_type.strip().lower()
     if assessment_type not in {"quiz", "exam", "assignment"}:
         raise ValueError("assessment_type must be quiz, exam, or assignment")
     score = float(score)
     max_score = float(max_score)
-    if max_score <= 0 or score < 0 or score > max_score:
+    if not math.isfinite(score) or not math.isfinite(max_score) or max_score <= 0 or score < 0 or score > max_score:
         raise ValueError("score must be between 0 and max_score")
+    session_date = parse_session_date(session_date)
     assessment = Assessment.query.filter_by(title=title.strip(), type=assessment_type).first()
     if not assessment:
-        assessment = Assessment(title=title.strip(), type=assessment_type, max_score=max_score)
+        assessment = Assessment(title=title.strip(), type=assessment_type, max_score=max_score, session_date=session_date)
         db.session.add(assessment)
         db.session.flush()
     else:
         assessment.max_score = max_score
+        assessment.session_date = session_date
     grade = Grade.query.filter_by(student_id=student.id, assessment_id=assessment.id).first()
     if grade:
         grade.score = score
@@ -246,6 +362,138 @@ def admin_student_password():
     return render_template("admin_password.html", students=students)
 
 
+@app.route("/admin/students/<int:student_id>", methods=["GET", "POST"])
+@admin_required
+def admin_student_profile(student_id):
+    student = db.session.get(User, student_id)
+    if not student or student.role != "student":
+        flash("Student account not found.", "error")
+        return redirect(url_for("admin"))
+
+    if request.method == "POST":
+        action = request.form.get("action")
+        try:
+            if action == "profile":
+                name = request.form.get("name", "").strip()
+                email = request.form.get("email", "").strip()
+                if not name or not email:
+                    raise ValueError("Name and email are required.")
+                email_owner = User.query.filter(User.email == email, User.id != student.id).first()
+                if email_owner:
+                    raise ValueError("That email address is already used by another account.")
+                create_backup()
+                student.name = name
+                student.email = email
+            elif action == "grade":
+                grade = db.session.get(Grade, int(request.form.get("grade_id", "")))
+                if not grade or grade.student_id != student.id:
+                    raise ValueError("Grade not found for this student.")
+                score = float(request.form.get("score", ""))
+                if not math.isfinite(score) or score < 0 or score > grade.assessment.max_score:
+                    raise ValueError("Score must be between 0 and the assessment max score.")
+                create_backup()
+                grade.score = score
+                db.session.flush()
+                evaluate_badges(student)
+            elif action == "delete_grade":
+                grade = db.session.get(Grade, int(request.form.get("grade_id", "")))
+                if not grade or grade.student_id != student.id:
+                    raise ValueError("Grade not found for this student.")
+                create_backup()
+                db.session.delete(grade)
+                db.session.flush()
+                evaluate_badges(student)
+            elif action == "award_badge":
+                badge = db.session.get(Badge, int(request.form.get("badge_id", "")))
+                if not badge or badge.criteria_type != "manual":
+                    raise ValueError("Select a valid admin-awarded badge.")
+                create_backup()
+                award_badge(student, badge.name)
+            elif action == "remove_badge":
+                award = db.session.get(StudentBadge, int(request.form.get("student_badge_id", "")))
+                if not award or award.student_id != student.id or award.badge.criteria_type != "manual":
+                    raise ValueError("Only a manually awarded badge for this student can be removed here.")
+                create_backup()
+                db.session.delete(award)
+            else:
+                raise ValueError("Unknown profile action.")
+            db.session.commit()
+            flash("Student profile updated.", "success")
+        except BackupError as error:
+            db.session.rollback()
+            flash(f"Change was not saved because a backup could not be created: {error}", "error")
+        except (TypeError, ValueError) as error:
+            db.session.rollback()
+            flash(str(error), "error")
+        return redirect(url_for("admin_student_profile", student_id=student_id))
+
+    grades = (
+        Grade.query.filter_by(student_id=student.id)
+        .join(Assessment)
+        .order_by(Assessment.session_date.desc(), Assessment.title)
+        .all()
+    )
+    all_badges = Badge.query.order_by(Badge.criteria_type, Badge.name).all()
+    awards = {award.badge_id: award for award in student.badges}
+    total_points = sum(grade.score for grade in grades)
+    possible_points = sum(grade.assessment.max_score for grade in grades)
+    average = total_points / possible_points * 100 if possible_points else 0
+    return render_template(
+        "admin_student_profile.html",
+        student=student,
+        grades=grades,
+        badges=all_badges,
+        awards=awards,
+        total_points=total_points,
+        average=average,
+    )
+
+
+@app.post("/admin/recognition")
+@admin_required
+def select_recognition_winner():
+    try:
+        period_type = request.form.get("period_type", "")
+        period_start = date.fromisoformat(request.form.get("period_start", ""))
+        student_id = int(request.form.get("student_id", ""))
+        expected_start, period_end = period_bounds(period_type, period_start)
+        if expected_start != period_start:
+            raise ValueError("The selected period start date is invalid.")
+
+        recognition = get_period_recognition(period_type, period_start, period_end)
+        if len(recognition["leaders"]) < 2:
+            raise ValueError("An administrator may select a winner only when the top average is tied.")
+        if not any(row["student"].id == student_id for row in recognition["leaders"]):
+            raise ValueError("Select one of the students tied for the highest period average.")
+
+        create_backup()
+        selection = RecognitionSelection.query.filter_by(
+            period_type=period_type,
+            period_start=period_start,
+        ).first()
+        if selection:
+            selection.student_id = student_id
+            selection.selected_by_id = current_user().id
+            selection.selected_at = datetime.utcnow()
+        else:
+            selection = RecognitionSelection(
+                period_type=period_type,
+                period_start=period_start,
+                student_id=student_id,
+                selected_by_id=current_user().id,
+            )
+            db.session.add(selection)
+        db.session.commit()
+        flash("Recognition winner selected.", "success")
+    except BackupError as error:
+        db.session.rollback()
+        flash(f"Winner was not saved because a backup could not be created: {error}", "error")
+    except (TypeError, ValueError) as error:
+        db.session.rollback()
+        flash(str(error), "error")
+    return redirect(url_for("admin") + "?tab=recognition")
+
+
 @app.post("/change-password")
 @login_required
 def change_password():
@@ -284,7 +532,22 @@ def dashboard():
     average = total_points / possible_points * 100 if possible_points else 0
     all_badges = Badge.query.order_by(Badge.id).all()
     unlocked = {award.badge_id: award for award in user.badges}
-    return render_template("dashboard.html", user=user, grades=grades, average=average, total_points=total_points, all_badges=all_badges, unlocked=unlocked)
+    today = date.today()
+    week_start, week_end = period_bounds("weekly", today)
+    month_start, month_end = period_bounds("monthly", today)
+    weekly_recognition = get_period_recognition("weekly", week_start, week_end)
+    monthly_recognition = get_period_recognition("monthly", month_start, month_end)
+    return render_template(
+        "dashboard.html",
+        user=user,
+        grades=grades,
+        average=average,
+        total_points=total_points,
+        all_badges=all_badges,
+        unlocked=unlocked,
+        weekly_recognition=weekly_recognition,
+        monthly_recognition=monthly_recognition,
+    )
 
 
 @app.route("/admin", methods=["GET", "POST"])
@@ -303,7 +566,7 @@ def admin():
                 if suffix not in {".csv", ".xlsx"}:
                     raise ValueError("Only .csv and .xlsx files are supported.")
                 frame = pd.read_csv(upload) if suffix == ".csv" else pd.read_excel(upload)
-                required = {"student_id", "assessment_name", "assessment_type", "score", "max_score"}
+                required = {"student_id", "assessment_name", "assessment_type", "score", "max_score", "session_date"}
                 missing = required - set(frame.columns)
                 if missing:
                     raise ValueError(f"Missing columns: {', '.join(sorted(missing))}")
@@ -312,7 +575,14 @@ def admin():
                     student = User.query.filter_by(student_id=str(row["student_id"]).strip()).first()
                     if not student or student.role != "student":
                         raise ValueError(f"Unknown student ID: {row['student_id']}")
-                    upsert_grade(student, row["assessment_name"], row["assessment_type"], row["score"], row["max_score"])
+                    upsert_grade(
+                        student,
+                        row["assessment_name"],
+                        row["assessment_type"],
+                        row["score"],
+                        row["max_score"],
+                        row["session_date"],
+                    )
                     imported += 1
                 db.session.commit()
                 flash(f"Imported {imported} grade record(s).", "success")
@@ -353,12 +623,21 @@ def admin():
                 flash(f"Imported {imported} student account(s).", "success")
             elif action == "grade":
                 student = db.session.get(User, int(request.form["student_id"]))
-                upsert_grade(student, request.form["assessment_name"], request.form["assessment_type"], request.form["score"], request.form["max_score"])
+                upsert_grade(
+                    student,
+                    request.form["assessment_name"],
+                    request.form["assessment_type"],
+                    request.form["score"],
+                    request.form["max_score"],
+                    request.form["session_date"],
+                )
                 db.session.commit()
                 flash("Grade updated and badge rules evaluated.", "success")
             elif action == "badge":
                 student = db.session.get(User, int(request.form["student_id"]))
                 badge = db.session.get(Badge, int(request.form["badge_id"]))
+                if not badge or badge.criteria_type != "manual":
+                    raise ValueError("Select an admin-awarded badge.")
                 award_badge(student, badge.name if badge else None)
                 db.session.commit()
                 flash("Badge awarded.", "success")
@@ -371,7 +650,17 @@ def admin():
         return redirect(url_for("admin"))
     students = User.query.filter_by(role="student").order_by(User.name).all()
     grades = Grade.query.join(User).join(Assessment).filter(User.role == "student").order_by(User.name, Assessment.title).all()
-    return render_template("admin.html", students=students, grades=grades, badges=Badge.query.order_by(Badge.name).all())
+    today = date.today()
+    week_start, week_end = period_bounds("weekly", today)
+    month_start, month_end = period_bounds("monthly", today)
+    return render_template(
+        "admin.html",
+        students=students,
+        grades=grades,
+        badges=Badge.query.order_by(Badge.name).all(),
+        weekly_recognition=get_period_recognition("weekly", week_start, week_end),
+        monthly_recognition=get_period_recognition("monthly", month_start, month_end),
+    )
 
 
 with app.app_context():
