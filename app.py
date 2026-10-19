@@ -9,6 +9,7 @@ import pandas as pd
 from backup_db import BackupError, create_backup
 from flask import Flask, flash, redirect, render_template, request, session, url_for
 from flask_sqlalchemy import SQLAlchemy
+from flask_wtf.csrf import CSRFError, CSRFProtect
 from sqlalchemy import text, UniqueConstraint
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -25,6 +26,7 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["SESSION_COOKIE_SECURE"] = os.environ.get("COOKIE_SECURE", "0") == "1"
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+csrf = CSRFProtect(app)
 db = SQLAlchemy(app)
 
 
@@ -319,10 +321,22 @@ def login():
     return render_template("login.html")
 
 
-@app.get("/logout")
+@app.post("/logout")
 def logout():
     session.clear()
     return redirect(url_for("login"))
+
+
+@app.errorhandler(CSRFError)
+def handle_csrf_error(error):
+    return (
+        render_template(
+            "error.html",
+            title="Form expired",
+            message="This form could not be verified. Reload the page and try again.",
+        ),
+        400,
+    )
 
 
 @app.get("/health")

@@ -73,32 +73,32 @@ Use this checklist when planning future updates to the live GenTech Portal. Comp
 
 ### Phase 1: Protect the live system
 
-- [x] Create automated daily SQLite backups.
+- [ ] Configure a daily scheduled SQLite backup task on the production host.
 - [x] Create a backup before every grade or student import.
-- [x] Keep multiple dated backup copies outside GitHub.
+- [ ] Copy backups periodically to storage outside the application account.
 - [ ] Test restoring a backup.
 - [ ] Replace all default admin passwords with strong private passwords.
-- [ ] Add CSRF protection to all state-changing forms.
-- [ ] Enforce secure, HTTP-only, SameSite session cookies.
+- [x] Add CSRF protection to all state-changing forms.
+- [x] Configure HTTP-only and SameSite session cookies; set `COOKIE_SECURE=1` in production.
 - [ ] Add session expiration and logout-from-all-devices support.
 - [ ] Add login rate limiting and temporary account lockout.
 - [ ] Require students to change temporary passwords on first login.
-- [ ] Add an admin password-reset workflow for students.
+- [x] Add an admin password-reset workflow for students.
 
 ### Phase 2: Improve administration
 
 - [x] Add student profiles with grades, badges, account summaries, and scoped editing.
 - [x] Add student search and filtering in the admin **Students** tab.
-- [ ] Allow admins to edit student names and email addresses.
+- [x] Allow admins to edit student names and email addresses.
 - [ ] Add account disable/deactivate support.
-- [ ] Add student password reset support.
+- [x] Add student password reset support.
 - [ ] Add safe student-list export.
 - [ ] Add grade filtering by student, assessment type, and date.
-- [ ] Allow admins to edit and delete incorrect grades.
+- [x] Allow admins to edit and delete incorrect grades.
 - [ ] Record who changed a grade and when.
 - [ ] Add CSV/Excel preview before committing an import.
 - [ ] Show row-level import validation errors.
-- [ ] Create an automatic backup before each import.
+- [x] Create an automatic backup before each import and manual grade/badge/password change.
 - [ ] Add admin badge creation and editing.
 - [ ] Add configurable automatic badge thresholds.
 - [ ] Add badge-award history.
@@ -120,7 +120,7 @@ Use this checklist when planning future updates to the live GenTech Portal. Comp
 ### Phase 4: Improve privacy
 
 - [ ] Store only data required for the educational purpose.
-- [ ] Ensure students can access only their own grades and badges.
+- [x] Ensure student dashboards show only the signed-in student's grades and badges.
 - [ ] Ensure student data never appears in public URLs or unauthenticated pages.
 - [ ] Add an audit log for logins, imports, grade changes, badge awards, and password actions.
 - [ ] Define retention periods for inactive accounts, grades, audit logs, and backups.
@@ -159,6 +159,18 @@ Follow this process for every future production update:
 11. Confirm the live application is working.
 ```
 
+### CSRF protection
+
+All state-changing browser forms now include Flask-WTF CSRF tokens, including login, logout, password operations, imports, grade changes, badge changes, and recognition selection. Requests with missing or invalid tokens receive HTTP 400 and must be retried after reloading the form.
+
+After pulling this update into PythonAnywhere, activate the web app's virtual environment and install the updated dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+Then reload the web app. No database migration is needed for CSRF protection.
+
 ### Critical warning
 
 The current `seed.py` script is destructive. It drops all existing tables and data before recreating the database. Never run it against production after real student data has been imported unless a full reset is explicitly intended and a verified backup exists.
@@ -175,7 +187,7 @@ The script stores up to 14 backups in `backups/`, and removes older copies autom
 
 The application also creates a backup before student imports, grade imports, manual grade changes, badge awards, and password changes. If a backup cannot be created, the requested change is not saved.
 
-For PythonAnywhere, create a scheduled task that runs once per day:
+The application creates backups automatically before supported changes; this does not create a daily backup by itself. For PythonAnywhere, create a scheduled task that runs once per day:
 
 ```bash
 cd /home/YOUR_USERNAME/YOUR_REPOSITORY && /home/YOUR_USERNAME/YOUR_REPOSITORY/.venv/bin/python backup_db.py
@@ -183,18 +195,18 @@ cd /home/YOUR_USERNAME/YOUR_REPOSITORY && /home/YOUR_USERNAME/YOUR_REPOSITORY/.v
 
 Download copies periodically from the PythonAnywhere Files tab or copy them to storage outside the application account. A local backup folder alone does not protect against account or disk loss.
 
+For production CSRF/session security, set a long random `SECRET_KEY` and set `COOKIE_SECURE=1` in the PythonAnywhere environment before reloading the web app. `COOKIE_SECURE=1` requires HTTPS, which PythonAnywhere provides for configured web apps.
+
 ## Recommended implementation order
 
-1. ~~Automated backups~~ (implemented)
-2. CSRF protection
+1. Pre-change database backups (implemented; configure daily scheduled backups separately)
+2. ~~CSRF protection~~ (implemented)
 3. First-login password changes
-4. Admin password reset
-5. Import preview and validation
-6. Audit logging
-7. Improved grade editing
-8. Badge management UI
-9. Student feedback and comments
-10. Database migrations
+4. Import preview and validation
+5. Audit logging
+6. Badge management UI
+7. Student feedback and comments
+8. Database migrations
 
 ## Render + PostgreSQL deployment
 
