@@ -26,8 +26,51 @@
       {% endfor %}
     </div></section>
     <section class="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><div class="flex flex-col justify-between gap-2 sm:flex-row sm:items-center"><div><p class="text-sm font-bold uppercase tracking-[.18em] text-[#2563eb]">Account security</p><h2 class="mt-1 text-xl font-black">Change your password</h2><p class="mt-1 text-sm text-slate-500">Use at least 8 characters and keep your password private.</p></div></div><form method="post" action="{{ url_for('change_password') }}" class="mt-5 grid gap-4 md:grid-cols-3"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label class="text-sm font-semibold">Current password<input name="current_password" type="password" required autocomplete="current-password" class="mt-2 w-full rounded-lg border border-slate-200 p-3 outline-none ring-[#2563eb] focus:ring-2"></label><label class="text-sm font-semibold">New password<input name="new_password" type="password" minlength="8" required autocomplete="new-password" class="mt-2 w-full rounded-lg border border-slate-200 p-3 outline-none ring-[#2563eb] focus:ring-2"></label><label class="text-sm font-semibold">Confirm new password<input name="confirm_password" type="password" minlength="8" required autocomplete="new-password" class="mt-2 w-full rounded-lg border border-slate-200 p-3 outline-none ring-[#2563eb] focus:ring-2"></label><button class="rounded-lg bg-[#0f2f68] px-5 py-3 font-bold text-white hover:bg-slate-700 md:col-span-3 md:justify-self-end">Update password</button></form></section>
-    <section class="mt-12"><div class="flex items-end justify-between"><div><p class="text-sm font-bold uppercase tracking-[.18em] text-[#2563eb]">Gradebook</p><h2 class="mt-1 text-2xl font-black">Your assessments</h2></div><span class="text-sm text-slate-400">{{ grades|length }} records</span></div><div class="mt-5 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200"><div class="hidden grid-cols-[1.3fr_.7fr_1fr_.7fr] gap-4 border-b border-slate-100 px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400 sm:grid"><span>Assessment</span><span>Type</span><span>Progress</span><span class="text-right">Score</span></div>{% for grade in grades %}<div class="grid gap-3 border-b border-slate-100 px-6 py-5 last:border-0 sm:grid-cols-[1.3fr_.7fr_1fr_.7fr] sm:items-center sm:gap-4"><div><p class="font-bold">{{ grade.assessment.title }}</p><p class="text-xs text-slate-400 sm:hidden">{{ grade.assessment.type|capitalize }}</p></div><span class="hidden text-sm capitalize text-slate-500 sm:block">{{ grade.assessment.type }}</span><div><div class="mb-1 flex justify-between text-xs text-slate-400"><span>{{ '%.0f'|format(grade.score) }}/{{ '%.0f'|format(grade.assessment.max_score) }}</span><span>{{ '%.0f'|format(grade.score / grade.assessment.max_score * 100) }}%</span></div><div class="h-2 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-[#2563eb]" style="width: {{ [grade.score / grade.assessment.max_score * 100, 100]|min }}%"></div></div></div><p class="text-left font-black sm:text-right">{{ '%.1f'|format(grade.score) }} <span class="font-normal text-slate-400">/ {{ '%.1f'|format(grade.assessment.max_score) }}</span></p></div>{% else %}<p class="px-6 py-10 text-center text-slate-500">Your first grade will appear here.</p>{% endfor %}</div></section>
+ch    <section class="mt-12">
+      <div class="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
+        <div><p class="text-sm font-bold uppercase tracking-[.18em] text-[#2563eb]">Gradebook</p><h2 class="mt-1 text-2xl font-black">Your assessments</h2></div>
+        <div class="flex items-center gap-3">
+          <label for="grade-category-filter" class="text-sm font-semibold text-slate-600">Filter by category</label>
+          <select id="grade-category-filter" class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
+            <option value="all">All categories</option><option value="quiz">Quizzes</option><option value="exam">Exams</option><option value="assignment">Assignments</option>
+          </select>
+          <span id="grade-filter-count" aria-live="polite" class="text-sm text-slate-400">{{ grades|length }} records</span>
+        </div>
+      </div>
+      <div id="grade-list" class="mt-5 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
+        <div class="hidden grid-cols-[1.3fr_.7fr_1fr_.7fr] gap-4 border-b border-slate-100 px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400 sm:grid"><span>Assessment</span><span>Type</span><span>Progress</span><span class="text-right">Score</span></div>
+        {% for grade in grades %}
+        <div class="grade-card grid gap-3 border-b border-slate-100 px-6 py-5 last:border-0 sm:grid-cols-[1.3fr_.7fr_1fr_.7fr] sm:items-center sm:gap-4" data-assessment-type="{{ grade.assessment.type }}">
+          <div><p class="font-bold">{{ grade.assessment.title }}</p><p class="text-xs text-slate-400 sm:hidden">{{ grade.assessment.type|capitalize }}</p></div>
+          <span class="hidden text-sm capitalize text-slate-500 sm:block">{{ grade.assessment.type }}</span>
+          <div><div class="mb-1 flex justify-between text-xs text-slate-400"><span>{{ '%.0f'|format(grade.score) }}/{{ '%.0f'|format(grade.assessment.max_score) }}</span><span>{{ '%.0f'|format(grade.score / grade.assessment.max_score * 100) }}%</span></div><div class="h-2 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-[#2563eb]" style="width: {{ [grade.score / grade.assessment.max_score * 100, 100]|min }}%"></div></div></div>
+          <p class="text-left font-black sm:text-right">{{ '%.1f'|format(grade.score) }} <span class="font-normal text-slate-400">/ {{ '%.1f'|format(grade.assessment.max_score) }}</span></p>
+        </div>
+        {% else %}<p class="px-6 py-10 text-center text-slate-500">Your first grade will appear here.</p>{% endfor %}
+        <p id="grade-filter-empty" class="hidden px-6 py-10 text-center text-slate-500">No assessments match this category.</p>
+      </div>
+    </section>
     <section class="mt-12"><p class="text-sm font-bold uppercase tracking-[.18em] text-[#2563eb]">Trophy case</p><div class="mt-1 flex items-end justify-between"><h2 class="text-2xl font-black">Milestones</h2><span class="text-sm text-slate-400">{{ unlocked|length }} earned</span></div><div class="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{% for badge in all_badges %}{% set award = unlocked.get(badge.id) %}<article class="rounded-2xl border p-5 {% if award %}border-[#bfdbfe] bg-[#fffaf6]{% else %}border-slate-200 bg-white opacity-60{% endif %}"><div class="flex items-start justify-between"><span class="text-3xl">{% if badge.icon_name == 'star' %}★{% elif badge.icon_name == 'sparkles' %}✦{% else %}♛{% endif %}</span>{% if award %}<span class="rounded-full bg-[#bfdbfe] px-2.5 py-1 text-xs font-bold">Unlocked</span>{% else %}<span class="text-xs font-semibold text-slate-400">Locked</span>{% endif %}</div><h3 class="mt-5 font-black">{{ badge.name }}</h3><p class="mt-1 text-sm leading-6 text-slate-500">{{ badge.description }}</p>{% if award %}<p class="mt-4 text-xs font-semibold text-[#2563eb]">Unlocked {{ award.unlocked_at.strftime('%b %d, %Y') if award.unlocked_at else '' }}</p>{% endif %}</article>{% endfor %}</div></section>
   </main>
+  <script>
+    const gradeCategoryFilter = document.getElementById('grade-category-filter');
+    const gradeCards = Array.from(document.querySelectorAll('.grade-card'));
+    const gradeFilterCount = document.getElementById('grade-filter-count');
+    const gradeFilterEmpty = document.getElementById('grade-filter-empty');
+
+    gradeCategoryFilter.addEventListener('change', () => {
+      const selectedCategory = gradeCategoryFilter.value;
+      let visibleCount = 0;
+      gradeCards.forEach(card => {
+        const matches = selectedCategory === 'all' || card.dataset.assessmentType === selectedCategory;
+        card.classList.toggle('hidden', !matches);
+        if (matches) visibleCount += 1;
+      });
+      gradeFilterCount.textContent = selectedCategory === 'all'
+        ? `${visibleCount} records`
+        : `${visibleCount} of ${gradeCards.length} records`;
+      gradeFilterEmpty.classList.toggle('hidden', visibleCount > 0 || gradeCards.length === 0);
+    });
+  </script>
 </body>
 </html>
