@@ -106,7 +106,7 @@ Use this checklist when planning future updates to the live GenTech Portal. Comp
 ### Phase 3: Improve the student experience
 
 - [x] Show Student of the Week and Student of the Month using Monday session dates, with admin tie resolution.
-- [ ] Add grade filters by assessment category.
+- [x] Add grade filters by assessment category on the student dashboard.
 - [ ] Show averages for quizzes, exams, and assignments separately.
 - [ ] Add grade trends over time.
 - [ ] Show points needed for the next badge or milestone.
@@ -201,12 +201,13 @@ For production CSRF/session security, set a long random `SECRET_KEY` and set `CO
 
 1. Pre-change database backups (implemented; configure daily scheduled backups separately)
 2. ~~CSRF protection~~ (implemented)
-3. First-login password changes
-4. Import preview and validation
-5. Audit logging
-6. Badge management UI
-7. Student feedback and comments
-8. Database migrations
+3. Configure and verify production backup schedule and off-site copies.
+4. First-login password changes
+5. Import preview and row-level validation
+6. Audit logging
+7. Badge management UI
+8. Student feedback and comments
+9. Database migrations
 
 ## Render + PostgreSQL deployment
 
