@@ -570,7 +570,7 @@ def admin():
     if request.method == "POST":
         action = request.form.get("action")
         try:
-            if action in {"upload", "students", "grade", "badge"}:
+            if action in {"upload", "students", "add_student", "grade", "badge"}:
                 create_backup()
             if action == "upload":
                 upload = request.files.get("file")
@@ -600,6 +600,29 @@ def admin():
                     imported += 1
                 db.session.commit()
                 flash(f"Imported {imported} grade record(s).", "success")
+            elif action == "add_student":
+                student_id = request.form.get("new_student_id", "").strip()
+                name = request.form.get("new_student_name", "").strip()
+                email = request.form.get("new_student_email", "").strip() or None
+                password = request.form.get("new_student_password", "")
+                confirm_password = request.form.get("new_student_confirm_password", "")
+                if not student_id or not name or not password:
+                    raise ValueError("Student ID, name, and password are required.")
+                if len(student_id) > 50 or len(name) > 120 or (email and len(email) > 160):
+                    raise ValueError("Student ID, name, or email is longer than the allowed limit.")
+                if len(password) < 8:
+                    raise ValueError("The password must be at least 8 characters long.")
+                if password != confirm_password:
+                    raise ValueError("The passwords do not match.")
+                if User.query.filter_by(student_id=student_id).first():
+                    raise ValueError("That student ID is already in use.")
+                if email and User.query.filter_by(email=email).first():
+                    raise ValueError("That email address is already in use.")
+                student = User(student_id=student_id, name=name, email=email, role="student")
+                student.set_password(password)
+                db.session.add(student)
+                db.session.commit()
+                flash(f"Student account created for {student.name}.", "success")
             elif action == "students":
                 upload = request.files.get("student_file")
                 if not upload or not upload.filename:

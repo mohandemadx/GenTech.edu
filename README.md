@@ -89,6 +89,7 @@ Use this checklist when planning future updates to the live GenTech Portal. Comp
 
 - [x] Add student profiles with grades, badges, account summaries, and scoped editing.
 - [x] Add student search and filtering in the admin **Students** tab.
+- [x] Add individual student accounts manually as well as by spreadsheet import.
 - [x] Allow admins to edit student names and email addresses.
 - [ ] Add account disable/deactivate support.
 - [x] Add student password reset support.
