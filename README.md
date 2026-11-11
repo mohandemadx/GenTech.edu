@@ -93,8 +93,8 @@ Use this checklist when planning future updates to the live GenTech Portal. Comp
 - [x] Allow admins to edit student names and email addresses.
 - [ ] Add account disable/deactivate support.
 - [x] Add student password reset support.
-- [ ] Add safe student-list export.
-- [ ] Add grade filtering by student, assessment type, and date.
+- [x] Add an admin-only student CSV export; it excludes passwords and password hashes.
+- [x] Add grade filtering by student, assessment type, and date in the admin **Manual tools** tab.
 - [x] Allow admins to edit and delete incorrect grades.
 - [ ] Record who changed a grade and when.
 - [ ] Add CSV/Excel preview before committing an import.

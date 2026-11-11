@@ -1,3 +1,5 @@
+import csv
+import io
 import os
 import math
 import calendar
@@ -7,7 +9,7 @@ from pathlib import Path
 
 import pandas as pd
 from backup_db import BackupError, create_backup
-from flask import Flask, flash, redirect, render_template, request, session, url_for
+from flask import Flask, Response, flash, redirect, render_template, request, session, url_for
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf.csrf import CSRFError, CSRFProtect
 from sqlalchemy import text, UniqueConstraint
@@ -561,6 +563,34 @@ def dashboard():
         unlocked=unlocked,
         weekly_recognition=weekly_recognition,
         monthly_recognition=monthly_recognition,
+    )
+
+
+@app.get("/admin/students/export")
+@admin_required
+def export_students():
+    def safe_csv_value(value):
+        value = value or ""
+        if value.lstrip(" \t\r\n").startswith(("=", "+", "-", "@")):
+            return "'" + value
+        return value
+
+    output = io.StringIO(newline="")
+    writer = csv.writer(output)
+    writer.writerow(["student_id", "name", "email"])
+    students = User.query.filter_by(role="student").order_by(User.name, User.student_id).all()
+    for student in students:
+        writer.writerow(
+            [
+                safe_csv_value(student.student_id),
+                safe_csv_value(student.name),
+                safe_csv_value(student.email),
+            ]
+        )
+    return Response(
+        output.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=GenTech-students.csv"},
     )
 
 
